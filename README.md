@@ -1,4 +1,4 @@
-# iot-utilities
-Sample C code and command-line utilities for certificate-based encryption and signing operations. 
+# iot-handlers
+Command-line scripts to be run by issued alert/expiration handlers. 
 
 Example event handlers to publish device certificates to various cloud providers
