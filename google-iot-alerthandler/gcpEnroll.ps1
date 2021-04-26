@@ -1,4 +1,4 @@
-# Copyright 2021 Keyfactor
+﻿# Copyright 2021 Keyfactor
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,12 @@ Import-Module GoogleCloud
 #       instead, use keyfactor.thedemodrive.com for all API calls
 #
 $apiURL = 'https://keyfactor.thedemodrive.com/KeyfactorApi'
+#fill in Google Cloud Platform Iot Core Specific identifier information.
+#$gProjectId = 'iot-test-308421'
+#$gProjectRegistry = 'test-registry'
+#$gProjectLocation = 'us-central1'
+#$jsonKeyPath = "C:\CMS\Scripts\iot-test-308421-ad1344b10b3b.json"
+
 
 try {
 	# Check and process the context parameters
@@ -27,14 +33,22 @@ try {
 	[bool]$outputLog = $false
 	if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true } 
 	# Generate a log file for tracing if OutputLog is true
-	if ($outputLog) { $outputFile = ("C:\CMS\scripts\gcpenroll_" + (get-date -UFormat "%Y%m%d%H%M") + ".txt") }
+	if ($outputLog) { $outputFile = ("C:\CMS\scripts\gcpenroll_" + (get-date -UFormat "%Y%m%d%H") + ".txt") }
 	if ($outputLog) { Add-Content -Path $outputFile -Value "Starting Trace: $(Get-Date -format G)" }
 
-	$certSN = $context["SN"]
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'SN' = $certSN" }
-	if ([string]::IsNullOrWhiteSpace($certSN)) { throw "Context variable 'SN' required" }
-	[bool]$skipGcp = $false
-	if ($context["TestOnly"] -like "Y*" ) { $skipGcp = $false } 
+	$certTP = $context["TP"]
+	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'TP - thumbprint' = $certTP" }
+	if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'TP' required" }
+	$certDN = $context["DN"]
+	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'DN' = $certDN" }
+	if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
+	$certCN = $context["CN"]
+	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'CN' = $certCN" }
+	if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }
+
+	[bool]$scheduleJob = $true
+	if ($context["TestOnly"] -like "Y*" ) { $scheduleJob = $false } 
+	if ($outputLog) { Add-Content -Path $outputFile -Value "schedule job set to: = $scheduleJob via TestOnly flag" }
 
 	# By default, expiration handlers send emails. Turn this off
 	if ($outputLog) { Add-Content -Path $outputFile -Value "Turning off emailing" }
@@ -42,13 +56,13 @@ try {
 
 	# These values should be filled in with the appropriate values from Google Cloud
 	$gProjectId = $context["GcpProjectId"]
-	if ([string]::IsNullOrWhiteSpace($gProjectId)) { throw "Context variable 'GcpProjectId' required"}
+	if ([string]::IsNullOrWhiteSpace($gProjectId)) { throw "Context variable 'GcpProjectId' required" }
 	$gProjectLocation = $context["GcpLocation"]
-	if ([string]::IsNullOrWhiteSpace($gProjectLocation)) { throw "Context variable 'GcpProjectLocation' required"} 
+	if ([string]::IsNullOrWhiteSpace($gProjectLocation)) { throw "Context variable 'GcpProjectLocation' required" } 
 	$gProjectRegistry = $context["GcpRegistry"]
-	if ([string]::IsNullOrWhiteSpace($gProjectRegistry)) { throw "Context variable 'GcpProjectRegistry' required"}
+	if ([string]::IsNullOrWhiteSpace($gProjectRegistry)) { throw "Context variable 'GcpProjectRegistry' required" }
 	$jsonKeyPath = $context["GcpServiceAccountJsonPath"]
-	if ([string]::IsNullOrWhiteSpace($jsonKeyPath)) { throw "Context variable 'GcpServiceAccountJsonPath' required"}
+	if ([string]::IsNullOrWhiteSpace($jsonKeyPath)) { throw "Context variable 'GcpServiceAccountJsonPath' required" }
 	if ($outputLog) { 
 		Add-Content -Path $outputFile -Value "GCP Project Id: $gProjectId" 
 		Add-Content -Path $outputFile -Value "GCP Project Location: $gProjectLocation" 
@@ -60,45 +74,27 @@ try {
 	$checkgcloud = Get-Command gcloud
 	if ($outputLog) { Add-Content -Path $outputFile -Value "checking gcloud: $checkgcloud" }
 
-	# Send an API call to grab the cetificate id from the cert serial number
-	# We need this in further calls
-	$headers = @{}
-	$headers.Add('Content-Type', 'application/json')
-	$headers.Add('x-keyfactor-requested-with', 'APIClient')
-	$uri = "$($apiURL)/Certificates?pq.queryString=SerialNumber%20-eq%20%22$certSN%22"
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Preparing a GET from $uri" }
-	$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Got back $($response)" }
-	$certId = $response[0].Id
-	$certThumbprint = $response[0].Thumbprint
-	$certCN = $response[0].IssuedCN
-	if ($certCN -match "device-id") {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "this is a device id cert" }
-	}
- 	else {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "this is not a device id cert, Exiting $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" }
-		exit
-	}
-		
-	$expiryDate = $response[0].NotAfter
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Decoded cert id as $certId with expiry of $expiryDate and thumbprint : $certThumbprint" }
-	if ([string]::IsNullOrWhiteSpace($certId)) { throw "Did not get back a certId" }
-
-	# Send an API call to find the number of stores the certificate has to get the machine name.
-	$uri = "$($apiURL)/Certificates/Locations/$certId"
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Preparing a GET from $uri" }
-	$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Got back $($response)" }
-	$storeCount = $response.Details.StoreCount
-
-	if ([string]::IsNullOrWhiteSpace($storeCount)) {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "No store found, this must be an Agent cert, Exiting $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" }
-		exit
-	}
-	else {
-		$clientMachine = $response.Details.Locations[0].ClientMachine
-		if ($outputLog) { Add-Content -Path $outputFile -Value "Found this cert in $storeCount stores, the first store is in machine $clientMachine" }
-	}
+	if ($certDN -match 'iot-id-cert' ) {
+		if ($outputLog) { Add-Content -Path $outputFile -Value "iot id cert, using certCN: $certCN as devicename" }
+		#get machine name out of cert CN
+		$clientMachine = $certCN
+		# Send an API call to grab the cetificate from the cert serial number
+		$headers = @{}
+		$headers.Add('Content-Type', 'application/json')
+		$headers.Add('x-keyfactor-requested-with', 'APIClient')
+		$uri = "$($apiURL)/Certificates?pq.queryString=thumbprint%20-eq%20%22$certTP%22"
+		#todo figure out how to make this work, should be able to remove the second api call
+		#$uri = "$($apiURL)/Certificates?pq.queryString=thumbprint%20-eq%20%22$certTP%22&verbose=2"
+		if ($outputLog) { Add-Content -Path $outputFile -Value "Preparing a GET from $uri" }
+		$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
+		if ($outputLog) { Add-Content -Path $outputFile -Value "Got back $($response)" }
+		$certId = $response[0].Id
+		#TODO this is already in the right format, but needs to have ----begin/end certificate----- and lines
+		#$b64_encoded_cert = $response[0].ContentBytes
+		#decode the cert
+		#if ($outputLog) { Add-Content $outputFile -Value "b64 encoded certificate is: "; Add-Content $outputFile -Value "$b64_encoded_cert" }
+		#$decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$b64_encoded_cert"))
+		#if ($outputLog) { Add-Content $outputFile -Value "Decoded certificate is: "; Add-Content $outputFile -Value "$decoded" }
 
 	# Send an API call to grab the certificate by its cert id
 	$uri = "$($apiURL)/Certificates/Download"
@@ -112,12 +108,16 @@ try {
 	# We are after the payload
 	$b64_encoded_string = $response[0].Content
 	$unencoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$b64_encoded_string"))
-	if ($outputLog) { Add-Content $outputFile -Value "Decoded certificate is: "; Add-Content $outputFile -Value "$unencoded" }
 
-	if ($skipGcp) {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "skipping post to GCP IoT Core as configured as testOnly from context[]" }
+
+	} else {
+		if ($outputLog) { Add-Content -Path $outputFile -Value "not iot id cert, exiting" }
+		exit
 	}
-	else {
+
+	if ($testOnly) {
+		if ($outputLog) { Add-Content -Path $outputFile -Value "skipping post to GCP IoT Core" }
+	} else {
 		if ($outputLog) { Add-Content -Path $outputFile -Value "posting to GCP IoT core" }
 		#activate GCP service account  -> service account json credential
 		gcloud-ps auth activate-service-account --key-file="$jsonKeyPath"
