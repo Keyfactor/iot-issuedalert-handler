@@ -14,7 +14,7 @@ GcpRegistry : the string ID of the GCP IoT Hub Registry
 GcpServiceAccountJsonPath : the string path (on the keyfactor platform windows host) to the Service Account Json credential.  
 OutputLog : Y to enable logging, anything else for not.
 ScriptName : the string path (on the keyfactor platform windows host) for the script.
-SN : the serial number of the cert.  
+TP : the thumbprint of the cert.  Uses this unique ID to collect the appropriate cert
 TestOnly : Y to enable testOnly - will NOT post to IoT Hub, anything to post to IoT Hub.
 
-
+If this is used with CAgent, note that agent 2.7.0 or later is needed or there can be issues collecting the machine name from the cert.
