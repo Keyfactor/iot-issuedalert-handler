@@ -8,79 +8,105 @@
 Import-Module Az
 
 #This script is intended to be run by the timer service at a prespecified interval upon machine start up.  e.g every 15m after the machine starts.
+
+
 [bool]$outputLog = $true #disable to remove logging
+#check log files to see how many we have, if more than 3 save only the 3 latest
+try {
+    $logsToKeep = 3;
+    $logPath = "C:\scripts\IoTHub\CheckMetadataAndUpdateIotHub"
+    $logFormat = "metadataIotHub*txt"
+    $existingLogs = [System.IO.Directory]::GetFiles("$logPath", "$logFormat") | Sort-Object -Desc #newest is first
+    if ($existingLogs.Count -gt $logsToKeep) {
+        #keeping the latest log files.  
+        for ($i = $logsToKeep; $i -lt $existingLogs.Count; $i++) {
+            if ($outputLog) { Add-Content -Path $outputFile -Value "Deleting expired log file: $existingLogs[$i]" }
+            [System.IO.File]::Delete($existingLogs[$i])
+        }
+    }
+}
+catch {
+    if ($outputLog) { Add-Content -Path $outputFile -Value "Execption while clearing old logs: $_" }
+}
+
+
 if ($outputLog) { $outputFile = ("C:\scripts\IoTHub\CheckMetadataAndUpdateIotHub\metadataIotHub_" + (get-date -UFormat "%Y%m%d") + ".txt") } #one log file per day
+
+if ($outputLog) { Add-Content -Path $outputFile -Value "----------Starting Trace: $(Get-Date -format G)----------" }
 #------------------------------
 #arguments for az IoTHub parameters:  not sure where to stick these:
 #needed for authenticating service principal
-$azureTP = 'needs to be filled in'
-$ApplicationId = 'needs to be filled in'
-$TenantId = 'needs to be filled in'
+$azureTP = 'fill in with the thumbprint for the azure service principal certificate'
+$ApplicationId = 'fill in with the azure application id'
+$TenantId = 'fill in with the azure tenant id'
 #parameters required by Azure to list devices on the hub
-$azResourceGroupName = "needs to be filled in"
-$azIotHubName = "needs to be filled in"
-#parameters required by Azure to update device
-#$azResourceGroupName =
-#$azIotHubName = 
+$azResourceGroupName = "fill in with the azure resource group name"
+$azIotHubName = "fill in with the azure iot hub name"
 
 #get all certificates from the platform with "Enabled" metadata not null
 $headers = @{} 
 $headers.add('Content-Type', 'application/json')
-$apiUrl = "https://trumpf.thedemodrive.com/KeyfactorApi"
+$apiUrl = "https://control.thedemodrive.com/KeyfactorApi"
 #need verbosity 3 for the metadata object to be included
 $uri = "$($apiUrl)/Certificates/?queryString=Enabled%20-ne%20NULL&verbose=3"
 #todo is there a different way we can do this?  just get meta data + join CN? using verbose3 seems like a lot of data we wont use
 
 $certs = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
 
-if ($outputLog) { Add-Content -Path $outputFile -Value "number of certs with 'Enabled' metadata:  $certs.Length " }
+if ($outputLog) { Add-Content -Path $outputFile -Value "number of certs with 'Enabled' metadata: $($certs.Length) " }
 $sorted = $certs.GetEnumerator() | Sort-Object -Property Id -Descending
 #by desc sorting on Id, we use the newest certs per CN only, powershell hashtable doesnt overwrite values
-$kfDevices = @{}
+
+$kfDevices = @{} # hashtable : key: device name (CN); value: enabled/disabled
 ForEach ($cert in $sorted) {
-    #if ($outputLog) { Add-Content -Path $outputFile -Value "------------------------------------------------------------" }
-    if ($kfDevices.Contains($cert.IssuedCN)) { #dupe, skip 
-        if ($outputLog) { Add-Content -Path $outputFile -Value "duplicate of CN:  $($cert.IssuedCN)  ; id of cert: $($cert.Id) "}
+    if ($kfDevices.Contains($cert.IssuedCN)) {
+        #dupe, skip 
+        if ($outputLog) { Add-Content -Path $outputFile -Value "duplicate of CN: $($cert.IssuedCN); id of cert: $($cert.Id) " }
         continue
     }
 
-    if($cert.Metadata.Enabled -eq "True") {
+    if ($cert.Metadata.Enabled -eq "True") {
         $certStatus = "Enabled"
-    } else {
+    }
+    else {
         $certStatus = "Disabled"
     }
-    if ($outputLog) { Add-Content -Path $outputFile -Value "enabled status of cert: $($cert.Metadata.Enabled) aka $certStatus  CN:  $($cert.IssuedCN)  cert ID:  $($cert.Id)" }
+    if ($outputLog) { Add-Content -Path $outputFile -Value "enabled status of cert: $($cert.Metadata.Enabled) aka $certStatus CN: $($cert.IssuedCN) cert ID: $($cert.Id)" }
     $kfDevices.add($cert.IssuedCN, $certStatus)
 }
 if ($outputLog) { Add-Content -Path $outputFile -Value "devices + enabled status from keyfactor platform: $kfDevices" }
-#authenticate with service principal
-$azAuthStatus = Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
-if ($outputLog) { Add-Content -Path $outputFile -Value "Az Auth result: $azAuthStatus" } #for debugging, TODO remove this 
+try {
+    #authenticate with service principal
+    Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
 
-$iotHubDevices = Get-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName #this returns a list of devices, to specify one, add -DeviceId
-#if ($outputLog) { Add-Content -Path $outputFile -Value "Devices:  $iotHubDevices"} #for debugging, TODO remove this 
-if ($iotHubDevices.Count -eq 0) {
-    if ($outputLog) { Add-Content -Path $outputFile -Value "0 devices found on iotHub: $iotHubName in resource group: $azResourceGroupName, exiting" }
-    exit
-} 
-#Iterate over list of IoTHub devices and update status of those that are different via the platform.
-foreach ($device IN $iotHubDevices) {
-    $azStatus = $device.Status
-    $azName = $device.Id
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Currently on iotHub: $azName is Status: $azStatus" }
-    if ($kfDevices.Contains($azName)) {
-        #if ($outputLog) { Add-Content -Path $outputFile -Value "$azName found with metadata" }
-        if ($kfDevices[$azName] -eq $azStatus) {
-            #it's as expected do nothing
-            if ($outputLog) { Add-Content -Path $outputFile -Value "$azName is already set to $azStatus" }
-        } else { #update device status on az iot hub
-            if ($azStatus -eq "Enabled") {#todo this logic is a mess, 
-                $azStrStatus = "Disabled"
-            } else {
-                $azStrStatus = "Enabled"
+    $iotHubDevices = Get-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName #this returns a list of devices, to specify one, add -DeviceId
+    #if ($outputLog) { Add-Content -Path $outputFile -Value "Devices:  $iotHubDevices"} #for debugging, TODO remove this 
+    if ($iotHubDevices.Count -eq 0) {
+        if ($outputLog) { Add-Content -Path $outputFile -Value "0 devices found on iotHub: $iotHubName in resource group: $azResourceGroupName, exiting" }
+        exit
+    } 
+    #Iterate over list of IoTHub devices and update status of those that are different via the platform.
+    foreach ($device IN $iotHubDevices) {
+        $azStatus = $device.Status
+        $azName = $device.Id
+        if ($outputLog) { Add-Content -Path $outputFile -Value "Currently on iotHub: $azName is Status: $azStatus" }
+        if ($kfDevices.Contains($azName)) {
+            #if ($outputLog) { Add-Content -Path $outputFile -Value "$azName found with metadata" }
+            if ($kfDevices[$azName] -eq $azStatus) {
+                #it's as expected do nothing
+                if ($outputLog) { Add-Content -Path $outputFile -Value "$azName is already set to $azStatus" }
             }
-            $res = Set-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName -DeviceId $azName -Status $azStrStatus -StatusReason "Certificate Metadata updated"
-            if ($outputLog) { Add-Content -Path $outputFile -Value "Set $azName to Status: $azStrStatus on IoTHub: $res"}
+            else {
+                #update device status on az iot hub
+                $res = Set-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName -DeviceId $azName -Status $kfDevices[$azName] -StatusReason "Certificate Metadata updated"
+                if ($outputLog) { Add-Content -Path $outputFile -Value "Set $azName to Status: $azStrStatus on IoTHub: $res" }
+            }
         }
+    }
+}
+catch {
+    if ($outputLog) { 
+        Add-Content -Path $outputFile -Value "an exception was caught during Azure operations" 
+        Add-Content -Path $outputFile "error $_ " 
     }
 }
