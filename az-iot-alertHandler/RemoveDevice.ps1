@@ -61,20 +61,21 @@ foreach ($cert IN $expiredCerts) {
     }
 }
 if ($outputLog) { Add-Content -Path $outputFile -Value "expired/revoked certs with enabled metadata on control.keyfactor.com: $($devices.Count)" }
+$devicesToDisable = $devices #TODO filter these from local csv or something so as not to repeat forever on expired certs.
 
-$azAuthStatus = Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
-if ($outputLog) { Add-Content -Path $outputFile -Value "Az Auth result: $azAuthStatus" } #for debugging, TODO remove this 
-$iotHubDevices = Get-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName #this returns a list of devices, to specify one, add -DeviceId
-foreach ($device IN $iotHubDevices) {
-    $azStatus = $device.Status
-    $azName = $device.Id
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Currently on iotHub: $azName is Status: $azStatus" }
-    if ($devices.Contains($azName)) {
-        if ($devices[$azName] -eq "Enabled") {
-            #if device is enabled, disable it.  A
-            #TODO in the future might delete the device, commandlet is: Remove-AzIotHubDevice -ResourceGroupName <s> -IotHubName <s> -DeviceId <s>
-            $azResult = Set-AzIotHubDevice -ResourceGroupName $ResourceGroup -IotHubName $HubName -DeviceId $azName -Status "Disabled" -StatusReason "Certificate revoked or expired"
-            if ($outputLog) { Add-Content -Path $outputFile -Value "Disabled IoTHubDevice with DeviceID of: $($certCN): $azResult" }
+if ($devicesToDisable.Count -gt 0) {
+    $azAuthStatus = Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
+    if ($outputLog) { Add-Content -Path $outputFile -Value "Az Auth result: $azAuthStatus" } #for debugging, TODO remove this 
+
+    foreach ($deviceToDisable IN $devicesToDisable) {
+        $iotHubDevice = Get-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName -DeviceId $deviceToDisable 
+            if ($outputLog) { Add-Content -Path $outputFile -Value "currently on iotHub $($deviceToDisable): $($iotHubDevice.Status)" }
+
+        if ($iotHubDevice.Status -eq "Enabled") {
+            #if device is enabled, disable it.  
+            $azResult = Set-AzIotHubDevice -ResourceGroupName $azResourceGroupName -IotHubName $azIotHubName -DeviceId $deviceToDisable -Status "Disabled" -StatusReason "Certificate revoked or expired"
+            if ($outputLog) { Add-Content -Path $outputFile -Value "Disabled IoTHubDevice with DeviceID of: $($deviceToDisable): Az response.Status: $azResult.Status" }
+
         }
     }
 }
