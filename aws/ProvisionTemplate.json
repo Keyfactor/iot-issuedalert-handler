@@ -1,0 +1,36 @@
+{
+    "Parameters": {
+        "ThingName" : {
+            "Type" : "String"
+        },
+        "SerialNumber" : {
+            "Type" : "String"
+        },
+        "Location" : {
+            "Type" : "String",
+            "Default" : "WA"
+        },
+        "CACertificatePem" : {
+            "Type" : "String"
+        },
+        "CertificatePem" : {
+            "Type" : "String"
+        }
+    },
+    "Resources" : {
+        "thing" : {
+            "Type" : "AWS::IoT::Thing",
+            "Properties" : {
+                "ThingName" : {"Ref" : "ThingName"},
+                "AttributePayload" : { "version" : "v1", "serialNumber" :  {"Ref" : "SerialNumber"}}
+            }
+        },
+        "certificate" : {
+            "Type" : "AWS::IoT::Certificate",
+            "Properties" : {
+                "CACertificatePem": {"Ref" : "CACertificatePem"},
+                "CertificatePem": {"Ref" : "CertificatePem"}
+            }
+        }
+    }   
+}
