@@ -10,9 +10,10 @@ $apiURL = '<KF API URL>'
 [bool]$outputLog = $true
 $jsonCredsPath = '<path to JSON IAM creds (make sure these are protected!)>'
 $AWSRegion = '<AWS region>'
+$LogPath = '<path to log file>'
 
 # Generate a log file for tracing if OutputLog is true
-if ($outputLog) { $outputFile = ("<path_to_log>\AWSRevokeLog_" + (get-date -UFormat "%Y%m%d%H%M") + ".txt") }
+if ($outputLog) { $outputFile = ("$LogPath\AWSRevokeLog_" + (get-date -UFormat "%Y%m%d%H%M") + ".txt") }
 
 # Function: Update-LogFile
 # Description: function to update log file

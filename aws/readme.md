@@ -12,5 +12,21 @@ AWS allows for many methods of device/certificate registration, including upload
 
 The enrollment handler retreives the certificate PEM and CA PEM files via the Keyfactor REST API before initializing AWS. Then, it creates a parameter hash table according to the template. The test template takes a name, serial number, device location, and the PEM certificates for the CA and device certificate. Using these values, a new thing is registered, the certificate is uploaded, and a policy for the certificate is created and attached.
 
-The registration returns the ARNs for the certificate (contains the AWS certificate ID) and for the thing. Teh ARN for the certificate in AWS is then attached to the certificate metadata in Keyfactor.
+AWS returns booth the ARN for the certificate and for the thing. The certificate ARN is then attached to Keyfactor metadata.
 
+## Required fields for powershell script
+
+* AWSRegion - Region used by IoT instance
+* OutputLog - Yes or No to create an output log of actions taken by script
+* ScriptName - Select “Powershell Script Name” option when field is created. Value is automatically populated
+* SN - Serial number of script found under “Special Text” dropdown
+* TestOnly - Skips AWS enrollment for testing script
+* CN - Common name attached to certificate (used for thing registration)
+
+# AWS IoT Certificate Revocation - awsrevoke1.ps1
+
+Adjust fields for $jsonCredsPath, $AWSRegion, and $LogPath before running script.
+
+Obviously, when a device certificate is revoked in Keyfactor, the device should be denied access after AWS checks the CRL. This script is intended to run once daily on the Keyfactor server to disable certificates in AWS that are revoked in Keyfactor. Disabling the certificate in AWS guarentees that the device can't connect in the future.
+
+This script works by getting a list of certificates enrolled in AWS, and comparing each ARN to Keyfactor certificates containing an ARN as metadata. If a certificate is revoked in Keyfactor with a matching ARN, a function is called to deactivate the certificate in AWS.
