@@ -6,6 +6,7 @@
 # and limitations under the License.
 
 Import-Module GoogleCloud
+Import-Module ../powershellModules/kf_logging
 
 # Specify the API URL base.
 # Note that when we call the API we use Windows Auth:
@@ -34,24 +35,25 @@ try {
 	if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true } 
 	# Generate a log file for tracing if OutputLog is true
 	if ($outputLog) { $outputFile = ("C:\CMS\scripts\gcpenroll_" + (get-date -UFormat "%Y%m%d%H") + ".txt") }
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Starting Trace: $(Get-Date -format G)" }
+	$logFile = Initialize-KFLogs $outputLog "C:\CMS\scripts" "gcpenroll" 5 #keep no more than 5 log files
+	Add-InfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)" 
 
 	$certTP = $context["TP"]
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'TP - thumbprint' = $certTP" }
+	Add-InfoLog $outputLog $logFile "Context variable 'TP - thumbprint' = $certTP" 
 	if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'TP' required" }
 	$certDN = $context["DN"]
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'DN' = $certDN" }
+	Add-InfoLog $outputLog $logFile "Context variable 'DN' = $certDN" 
 	if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
 	$certCN = $context["CN"]
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'CN' = $certCN" }
+	Add-InfoLog $outputLog $logFile "Context variable 'CN' = $certCN" 
 	if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }
 
 	[bool]$scheduleJob = $true
 	if ($context["TestOnly"] -like "Y*" ) { $scheduleJob = $false } 
-	if ($outputLog) { Add-Content -Path $outputFile -Value "schedule job set to: = $scheduleJob via TestOnly flag" }
+	Add-InfoLog $outputLog $logFile "schedule job set to: = $scheduleJob via TestOnly flag" 
 
 	# By default, expiration handlers send emails. Turn this off
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Turning off emailing" }
+	Add-InfoLog $outputLog $logFile "Turning off emailing" 
 	$context["sendEMail"] = "false"
 
 	# These values should be filled in with the appropriate values from Google Cloud
@@ -64,18 +66,18 @@ try {
 	$jsonKeyPath = $context["GcpServiceAccountJsonPath"]
 	if ([string]::IsNullOrWhiteSpace($jsonKeyPath)) { throw "Context variable 'GcpServiceAccountJsonPath' required" }
 	if ($outputLog) { 
-		Add-Content -Path $outputFile -Value "GCP Project Id: $gProjectId" 
-		Add-Content -Path $outputFile -Value "GCP Project Location: $gProjectLocation" 
-		Add-Content -Path $outputFile -Value "GCP Project Registry: $gProjectRegistry" 
-		Add-Content -Path $outputFile -Value "GCP Service Account Json Key Path: $jsonKeyPath" 
+		Add-Content -Path $logFile -Value "GCP Project Id: $gProjectId" 
+		Add-Content -Path $logFile -Value "GCP Project Location: $gProjectLocation" 
+		Add-Content -Path $logFile -Value "GCP Project Registry: $gProjectRegistry" 
+		Add-Content -Path $logFile -Value "GCP Service Account Json Key Path: $jsonKeyPath" 
 	}
 
 	$env:Path += ";C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\"
 	$checkgcloud = Get-Command gcloud
-	if ($outputLog) { Add-Content -Path $outputFile -Value "checking gcloud: $checkgcloud" }
+	Add-InfoLog $outputLog $logFile "checking gcloud: $checkgcloud" 
 
 	if ($certDN -match 'iot-id-cert' ) {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "iot id cert, using certCN: $certCN as devicename" }
+		Add-InfoLog $outputLog $logFile "iot id cert, using certCN: $certCN as devicename" 
 		#get machine name out of cert CN
 		$clientMachine = $certCN
 		# Send an API call to grab the cetificate from the cert serial number
@@ -85,9 +87,9 @@ try {
 		$uri = "$($apiURL)/Certificates?pq.queryString=thumbprint%20-eq%20%22$certTP%22"
 		#todo figure out how to make this work, should be able to remove the second api call
 		#$uri = "$($apiURL)/Certificates?pq.queryString=thumbprint%20-eq%20%22$certTP%22&verbose=2"
-		if ($outputLog) { Add-Content -Path $outputFile -Value "Preparing a GET from $uri" }
+		Add-InfoLog $outputLog $logFile "Preparing a GET from $uri" 
 		$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
-		if ($outputLog) { Add-Content -Path $outputFile -Value "Got back $($response)" }
+		Add-InfoLog $outputLog $logFile "Got back $($response)" 
 		$certId = $response[0].Id
 		#TODO this is already in the right format, but needs to have ----begin/end certificate----- and lines
 		#$b64_encoded_cert = $response[0].ContentBytes
@@ -100,9 +102,9 @@ try {
 	$uri = "$($apiURL)/Certificates/Download"
 	$body = @{"CertId" = $certId } | ConvertTo-Json -Compress 
 	$headers.Add('X-CertificateFormat', 'PEM')
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Preparing a POST from $uri with body $body" }
+	Add-InfoLog $outputLog $logFile "Preparing a POST from $uri with body $body" 
 	$response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -Headers $headers -UseDefaultCredentials
-	if ($outputLog) { Add-Content -Path $outputFile -Value "Got back $($response)" }
+	Add-InfoLog $outputLog $logFile "Got back $($response)" 
 
 	# The response should contain the base 64 PEM
 	# We are after the payload
@@ -111,19 +113,19 @@ try {
 
 
 	} else {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "not iot id cert, exiting" }
+		Add-WarningLog $outputLog $logFile "not iot id cert, exiting" 
 		exit
 	}
 
 	if ($testOnly) {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "skipping post to GCP IoT Core" }
+		Add-InfoLog $outputLog $logFile "skipping post to GCP IoT Core" 
 	} else {
-		if ($outputLog) { Add-Content -Path $outputFile -Value "posting to GCP IoT core" }
+		Add-InfoLog $outputLog $logFile "posting to GCP IoT core" 
 		#activate GCP service account  -> service account json credential
 		gcloud-ps auth activate-service-account --key-file="$jsonKeyPath"
 		$token = gcloud-ps auth print-access-token | Out-String
 		#these tokens are valid for ~1hr by default.  do we want to save it and re-use for multiple calls?
-		if ($outputLog) { Add-Content -Path $outputFile -Value "gcp access token: $token" }
+		Add-InfoLog $outputLog $logFile "gcp access token: $token" 
 
 		$gURL = "https://cloudiot.googleapis.com/v1/projects/$gProjectId/locations/$gProjectLocation/registries/$gProjectRegistry/devices"
 		$pubKeyObj = @{"format" = "RSA_X509_PEM"; "key" = $unencoded }
@@ -134,13 +136,13 @@ try {
 		$h2 = @{}
 		$h2.Add('Content-Type', 'application/json')
 		$h2.Add('Authorization', "Bearer $token")
-		if ($outputLog) { Add-Content -Path $outputFile -Value "posting to GCP IoT core at $gURL with Body of $($gBodyJson); headers: $h2" }
+		Add-InfoLog $outputLog $logFile "posting to GCP IoT core at $gURL with Body of $($gBodyJson); headers: $h2" 
 		$gresponse = Invoke-RestMethod -Uri $gURL -Method POST -Headers $h2 -ContentType 'application/json' -Body $gBodyJson
-		if ($outputLog) { Add-Content -Path $outputFile -Value "response from google: $gresponse" }
+		Add-InfoLog $outputLog $logFile "response from google: $gresponse" 
 	}
 }
 catch {
-	if ($outputLog) { Add-Content -Path $outputFile -Value "exception caught during operation: $_.Exception.Message" }
-	if ($outputLog) { Add-Content -Path $outputFile -Value $_ }
+	Add-ErrorLog $outputLog $logFile "exception caught during operation: $_.Exception.Message" 
+	Add-ErrorLog $outputLog $logFile $_ 
 }
-if ($outputLog) { Add-Content -Path $outputFile -Value "Exiting script: $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" }
+Add-InfoLog $outputLog $logFile "Exiting script: $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" 

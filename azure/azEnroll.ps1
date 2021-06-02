@@ -6,6 +6,7 @@
 # and limitations under the License.
 
 Import-Module Az
+Import-Module ../powershellModules/kf_logging
 
 # Check and process the context parameters
 # The PowerShell alert handler injects the following into our runspace: [hashtable]$context
@@ -15,62 +16,59 @@ try {
     [bool]$outputLog = $false
     if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true } 
     # Generate a log file for tracing if OutputLog is true
-    if ($outputLog) { $outputFile = ("C:\CMS\scripts\azEnroll_" + (get-date -UFormat "%Y%m%d%H%M") + ".txt") }
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Starting Trace: $(Get-Date -format G)" }
+    $logFile = Initialize-KFLogs $outputLog "azEnroll" 5 #keep no more than 5 logs at a time
+    Add-InfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)" 
 
     $certTP = $context["thumbprint"]
     if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'thumbprint' required" }
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'thumbprint' = $certTP" }
+    Add-InfoLog $outputLog $logFile "Context variable 'thumbprint' = $certTP" 
 
     $certCN = $context["CN"]
     if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'CN' required" }
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Context variable 'CN' = $certCN" }
+    Add-InfoLog $outputLog $logFile "Context variable 'CN' = $certCN" 
 
     # These values should be filled in with the appropriate values from azure Cloud
     $HubName = $context["AzHubName"]
     if ([string]::IsNullOrWhiteSpace($HubName)) { throw "Context variable 'AzHubName' required" }
+    Add-InfoLog $outputLog $logFile "Az IoT Hub Name: $HubName" 
     $ApplicationId = $context["AzAppId"]
     if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzAppId' required" }
+    Add-InfoLog $outputLog $logFile "Az IoT Hub Application Id: $ApplicationId" 
     $SubGuid = $context["AzSubscriptionId"]
     if ([string]::IsNullOrWhiteSpace($SubGuid)) { throw "Context variable 'AzSubscriptionId' required" }
+    Add-InfoLog $outputLog $logFile "Az Subscription GUID: $SubGuid" 
     $TenantId = $context["AzTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
+    Add-InfoLog $outputLog $logFile "Az Tenant Id : $TenantId" 
     $azureTP = $context["AzServicePrincipalCertTP"]
     if ([string]::IsNullOrWhiteSpace($azureTP)) { throw "Context variable 'AzServicePrincipalCertTP' required" } 
-    if ($outputLog) { 
-        Add-Content -Path $outputFile -Value "Az IoT Hub Name: $HubName" 
-        Add-Content -Path $outputFile -Value "Az IoT Hub Application Id: $ApplicationId" 
-        Add-Content -Path $outputFile -Value "Az Subscription GUID: $SubGuid" 
-        Add-Content -Path $outputFile -Value "Az Tenant Id : $TenantId" 
-        Add-Content -Path $outputFile -Value "Az Service Principal Certificate Thumbprint : $azureTP" 
-    }
+    Add-InfoLog $outputLog $logFile "Az Service Principal Certificate Thumbprint : $azureTP" 
 
     # By default, expiration handlers send emails. Turn this off
-    if ($outputLog) { Add-Content -Path $outputFile -Value "Turning off emailing" }
+    Add-InfoLog $outputLog $logFile "Turning off emailing"
     $context["sendEMail"] = "false"
 
     if ($skipAz) {
-        if ($outputLog) { Add-Content -Path $outputFile -Value "skipping post to Az IoT Hub as configured TestOnly from context[]" }
+        Add-WarningLog $outputLog $logFile "Skipping post to Az IoT Hub as configured TestOnly from context[]" 
     }
     else {
-        if ($outputLog) { Add-Content -Path $outputFile -Value "posting to Az IoT Hub" }
+        Add-InfoLog $outputLog $logFile "adding device to Azure IoT Hub" 
         try {
             Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
             Add-AzIotHubDevice -ResourceId "/subscriptions/$SubGuid/resourceGroups/test_resource/providers/Microsoft.Devices/IotHubs/$HubName" -DeviceId $certCN -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certThumbprint
-            if ($outputLog) { Add-Content -Path $outputFile -Value "Created IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)" }
+            Add-InfoLog $outputLog $logFile "Created IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)" 
         }
         catch {
-            if ($outputLog) { 
-                Add-Content -Path $outputFile -Value "an error ocurred while creating an IotHub Device with CN of: $($certCN)" 
-                dd-Content -Path $outputFile "error $_ " 
-            } 
+            Add-ErrorLog $outputLog $logFile "an error ocurred while creating an IotHub Device with CN of: $($certCN)" 
+            Add-ErrorLog $outputLog $logFile "error: $_ " 
         }
     }
 }
 catch {
-    if ($outputLog) { Add-Content -Path $outputFile -Value "exception caught during operation: $_.Exception.Message" }
-    if ($outputLog) { Add-Content -Path $outputFile -Value $_ }
+    Add-ErrorLog $outputLog $logFile "exception caught during operation: $_.Exception.Message" 
+    Add-ErrorLog $ouputLog $logFile "error: $_ " 
 }
-if ($outputLog) { Add-Content -Path $outputFile -Value "Exiting script: $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" }
+
+Add-WarningLog $outputLog $logFile "Exiting script: $(Get-Date -format G)"; Add-Content -Path $outputFile "===================" 
 
 

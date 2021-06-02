@@ -1,4 +1,5 @@
 Import-Module AWS.Tools.IoT
+Import-Module ../powershellModules/kf_logging
 # First part of script primarily created by Sukhyung, adapted by Hayden for AWS
 # Specify the API URL base.
 # Note that when we call the API we use Windows Auth:
@@ -42,7 +43,7 @@ function InitializeAWS {
 function Update-LogFile {
 	param ($Path, $Write, $Content)
 	if ($Write) {
-		Add-Content $Path -Value $Content
+        Add-InfoLog $Write $Path $Content
 	}
 }
 
@@ -207,33 +208,34 @@ function Register-CertificateWithAWS {
 if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true }
 
 # Generate a log file for tracing if OutputLog is true
-if ($outputLog) { $outputFile = ("$LogPath\AWSEnrollLog_" + (get-date -UFormat "%Y%m%d%H%M") + ".txt") }
-Update-LogFile -Path $outputFile -Write $outputLog -Content "Starting Trace: $(Get-Date -format G)"
+if ($outputLog) { 
+    $logFile = Initialize-KFLogs $outputLog $LogPath "AWSEnrollLog_" 5 } 
+Update-LogFile -Path $logFile -Write $outputLog -Content "Starting Trace: $(Get-Date -format G)"
 
 try
 	{
     # Find certificate serial number from context hash table
 	$certSN = $context["SN"]
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Context variable 'SN' = $certSN"
+    Update-LogFile -Path $logFile -Write $outputLog -Content "Context variable 'SN' = $certSN"
 	if ([string]::IsNullOrWhiteSpace($certSN)) { throw "Context variable 'SN' required" }
     
     # Determine if invocation is a test
 	[bool]$testOnly = $false
 	if ($context["TestOnly"] -like "Y*" ) { $testOnly = $true }
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Is test? $testOnly"
+    Update-LogFile -Path $logFile -Write $outputLog -Content "Is test? $testOnly"
 
     # Use context to determine AWS region
     $AWSRegion = $context["AWSRegion"]
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Using $AWSRegion as AWS region"
+    Update-LogFile -Path $logFile -Write $outputLog -Content "Using $AWSRegion as AWS region"
     if ([string]::IsNullOrWhiteSpace($AWSRegion)) { throw "Context variable 'AWSRegion' required" }
 
     # Find certificate common name from context hash table
 	$certCN = $context["CN"]
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Context variable 'CN' = $certCN"
+    Update-LogFile -Path $logFile -Write $outputLog -Content "Context variable 'CN' = $certCN"
 	if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }    
 
 	# By default, expiration handlers send emails. Turn this off
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Turning off emailing"
+    Update-LogFile -Path $logFile -Write $outputLog -Content "Turning off emailing"
 	$context["sendEMail"] = "false"
 
     $CertID_IssuerDN = Get-CertIDFromSN -SN $certSN # This function returns hash table for cert ID and issuer DN
@@ -257,7 +259,7 @@ try
         $unencodedCertPEM = Get-CertFromID -ID $certId
         
         if ($testOnly) {
-			if ($outputLog) { Add-Content -Path $outputFile -Value "Skipping AWS registration" }
+            Add-InfoLog $outputLog $logFile "Skipping AWS registration" 
         }
 
         else {
