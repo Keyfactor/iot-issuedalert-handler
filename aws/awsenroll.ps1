@@ -28,56 +28,56 @@ $LogPath = '<path to log file>'
 function InitializeAWS {
     param($jsonCredsPath)
     # Read in AWS IAM credentials from JSON specified at the top
-	$jsonCreds = Get-Content -Path $jsonCredsPath | Out-String | ConvertFrom-Json
-	$AWSAccessKey = $jsonCreds.AWSAccessKey
-	if ([string]::IsNullOrWhiteSpace($AWSAccessKey)) { throw "Did not find 'AWSAccessKey' in JSON specified at $jsonCredsPath" }
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Found access key in JSON config specified at $jsonCredsPath"
-	$AWSSecretKey = $jsonCreds.AWSSecretKey
-	if ([string]::IsNullOrWhiteSpace($AWSSecretKey)) { throw "Did not find 'AWSSecretKey' in JSON specified at $jsonCredsPath" }
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Found secret key in JSON config specified at $jsonCredsPath"
+    $jsonCreds = Get  $jsonCredsPath | Out-String | ConvertFrom-Json
+    $AWSAccessKey = $jsonCreds.AWSAccessKey
+    if ([string]::IsNullOrWhiteSpace($AWSAccessKey)) { throw "Did not find 'AWSAccessKey' in JSON specified at $jsonCredsPath" }
+    Add-InfoLog $outputLog $logFile "Found access key in JSON config specified at $jsonCredsPath"
+    $AWSSecretKey = $jsonCreds.AWSSecretKey
+    if ([string]::IsNullOrWhiteSpace($AWSSecretKey)) { throw "Did not find 'AWSSecretKey' in JSON specified at $jsonCredsPath" }
+    Add-InfoLog $outputLog $logFile "Found secret key in JSON config specified at $jsonCredsPath"
 
     # Initialize AWS
     $checkawscli = Get-Command Get-IOTCertificate
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Using $($checkawscli.Source) version $($checkawscli.Version)"
+    Add-InfoLog $outputLog $logFile "Using $($checkawscli.Source) version $($checkawscli.Version)"
     $AWSCredential = New-AWSCredential `
         -AccessKey $AWSAccessKey `
         -SecretKey $AWSSecretKey
     return $AWSCredential
 }
 
-# Function: Update-LogFile
+# Function: Add-InfoLog
 # Description: function to update log file
-function Update-LogFile {
-	param ($Path, $Write, $Content)
-	if ($Write) {
+function Add-InfoLog {
+    param ($Path, $Write, $Content)
+    if ($Write) {
         Add-InfoLog $Write $Path $Content
-	}
+    }
 }
 
 # Function: Get-CertFromID
 # Description: Function to get certificate PEM from Keyfactor API using KF cert ID
 # Returns: Decoded PEM certificate
 function Get-CertFromID {
-	param ($ID)
+    param ($ID)
     # Send an API call to grab the certificate by its cert id
     $uri = "$($apiURL)/Certificates/Download"
-    $body = @{"CertId" = $ID} | ConvertTo-Json -Compress
+    $body = @{"CertId" = $ID } | ConvertTo-Json -Compress
     $headers = @{}
-	$headers.Add('Content-Type', 'application/json')
-	$headers.Add('x-keyfactor-requested-with', 'APIClient')
+    $headers.Add('Content-Type', 'application/json')
+    $headers.Add('x-keyfactor-requested-with', 'APIClient')
     $headers.Add('X-CertificateFormat', 'PEM')
-	Update-LogFile -Path $outputFile -Write $outputLog -Content "Preparing a POST from $uri with body $body"
+    Add-InfoLog $outputLog $logFile "Preparing a POST from $uri with body $body"
     $response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -Headers $headers -UseDefaultCredentials
-	Update-LogFile -Path $outputFile -Write $outputLog -Content "Got back $($response)"
+    Add-InfoLog $outputLog $logFile "Got back $($response)"
 
     # The response should contain the base 64 PEM
     # We are after the payload
     $b64_encoded_string = $response[0].Content
     $unencodedCertPEM = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$b64_encoded_string"))
     if ([string]::IsNullOrWhiteSpace($unencodedCertPEM)) { throw "Didn't get back a certificate PEM from cert with ID $ID" }
-	Update-LogFile -Path $outputFile -Write $outputLog -Content "Decoded certificate is: "
-	Update-LogFile -Path $outputFile -Write $outputLog -Content "$unencodedCertPEM"
-	return $unencodedCertPEM
+    Add-InfoLog $outputLog $logFile "Decoded certificate is: "
+    Add-InfoLog $outputLog $logFile "$unencodedCertPEM"
+    return $unencodedCertPEM
 }
 
 # Function: Get-CertIDFromSN
@@ -86,20 +86,20 @@ function Get-CertFromID {
 function Get-CertIDFromSN {
     param($SN)
     # Send an API call to grab the cetificate id from the cert serial number
-	# We need this in further calls
+    # We need this in further calls
     $Return = @{} # Initialize return hashtable to return issuer DN and certitificate ID
-	$headers = @{}
-	$headers.Add('Content-Type', 'application/json')
-	$headers.Add('x-keyfactor-requested-with', 'APIClient')
-	$uri = "$($apiURL)/Certificates?pq.queryString=SerialNumber%20-eq%20%22$certSN%22"
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Preparing a GET from $uri"
-	$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
+    $headers = @{}
+    $headers.Add('Content-Type', 'application/json')
+    $headers.Add('x-keyfactor-requested-with', 'APIClient')
+    $uri = "$($apiURL)/Certificates?pq.queryString=SerialNumber%20-eq%20%22$certSN%22"
+    Add-InfoLog $outputLog $logFile "Preparing a GET from $uri"
+    $response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
     $Return.Add('IssuerDN', $response[0].IssuerDN)
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Got back $($response)"
-	$certId = $response[0].Id
+    Add-InfoLog $outputLog $logFile "Got back $($response)"
+    $certId = $response[0].Id
     $return.Add('certId', $response[0].Id)
-	$expiryDate = $response[0].NotAfter
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Decoded cert id as $certId with expiry of $expiryDate"
+    $expiryDate = $response[0].NotAfter
+    Add-InfoLog $outputLog $logFile "Decoded cert id as $certId with expiry of $expiryDate"
 
     return $Return
 }
@@ -110,28 +110,26 @@ function Get-CertIDFromSN {
 function Get-AgentCertStatus {
     param($certId)
     # Send an API call to find the number of stores the certificate has
-	$uri = "$($apiURL)/Certificates/Locations/$certId"
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Preparing a GET from $uri"
-	$response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Got back $($response)"
-	$storeCount = $response.Details.StoreCount
+    $uri = "$($apiURL)/Certificates/Locations/$certId"
+    Add-InfoLog $outputLog $logFile "Preparing a GET from $uri"
+    $response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
+    Add-InfoLog $outputLog $logFile "Got back $($response)"
+    $storeCount = $response.Details.StoreCount
 
     # Check if it is an array. - Sami edit 03/24/2021 -> s.s. i moved the $clientMachine defintion into a better place, 
-	# shouldnt try to access if it it doesnt exist anymore
+    # shouldnt try to access if it it doesnt exist anymore
 
-	[bool]$agentCert = $false
-	if ([string]::IsNullOrWhiteSpace($storeCount))
-	{
-        Update-LogFile -Path $outputFile -Write $outputLog -Content "No store found, this must be an Agent cert"
-		#could we just exit() here instead of having to keep this agentCert bool?
-		$agentCert = $true
-	}
-	else
-	{
-        Update-LogFile -Path $outputFile -Write $outputLog -Content "Found a store for this cert, so it isn't an Agent cert"
-		$clientMachine = $response.Details.Locations[0].ClientMachine
-        Update-LogFile -Path $outputFile -Write $outputLog -Content "Found this cert in $storeCount stores, the first store is in machine $clientMachine"
-	}
+    [bool]$agentCert = $false
+    if ([string]::IsNullOrWhiteSpace($storeCount)) {
+        Add-InfoLog  $logFile  $outputLog  "No store found, this must be an Agent cert"
+        #could we just exit() here instead of having to keep this agentCert bool?
+        $agentCert = $true
+    }
+    else {
+        Add-InfoLog $outputLog $logFile "Found a store for this cert, so it isn't an Agent cert"
+        $clientMachine = $response.Details.Locations[0].ClientMachine
+        Add-InfoLog $outputLog $logFile "Found this cert in $storeCount stores, the first store is in machine $clientMachine"
+    }
     return $agentCert
 }
 
@@ -144,12 +142,12 @@ function Get-CertIDfromDN {
     $headers.Add('Content-Type', 'application/json')
     $headers.Add('x-keyfactor-requested-with', 'APIClient')
     $uri = "$($apiURL)/Certificates?pq.queryString=IssuedDN%20-eq%20%22$IssuerDN%22"
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Preparing a GET from $uri"
+    Add-InfoLog $outputLog $logFile "Preparing a GET from $uri"
     $response = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Got back $($response)"
+    Add-InfoLog $outputLog $logFile "Got back $($response)"
     $CertId = $response[0].Id
     $expiryDate = $response[0].NotAfter
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Decoded cert id as $CertId with expiry of $expiryDate"
+    Add-InfoLog $outputLog $logFile  "Decoded cert id as $CertId with expiry of $expiryDate"
     
     return $CertId
 }
@@ -163,37 +161,37 @@ function Update-KFCertMetadata {
     $headers.Add('x-keyfactor-requested-with', 'APIClient')
     $Metadata = @{}
     $Metadata.Add($MetadataField, $NewValue)
-    $body = @{"Id"=$certId; "Metadata"=$Metadata} | ConvertTo-Json -Compress
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Preparing a PUT from $uri with body $body"
+    $body = @{"Id" = $certId; "Metadata" = $Metadata } | ConvertTo-Json -Compress
+    Add-InfoLog $outputLog $logFile "Preparing a PUT from $uri with body $body"
     $response = Invoke-RestMethod -Uri $uri -Method PUT -Body $body  -Headers $headers -UseDefaultCredentials
-    if([string]::IsNullOrWhiteSpace($response)) {
-        Update-LogFile -Path $outputFile -Write $outputLog -Content "Updated metadata successfully"
+    if ([string]::IsNullOrWhiteSpace($response)) {
+        Add-InfoLog $outputLog $logFile "Updated metadata successfully"
     }
 }
 
 function Register-CertificateAndThing {
     param($Name, $SerialNumber, $Location, $CertPEM, $caCertPEM, $AWSCredential)
-    $TemplateBody = Get-Content -Path $ThingProvisioningTemplatePath | Out-String
+    $TemplateBody = Get  $ThingProvisioningTemplatePath | Out-String
     $IoTThingParameter = @{}
     $IoTThingParameter.Add('ThingName', $Name)
     $IoTThingParameter.Add('SerialNumber', $SerialNumber)
     $IoTThingParameter.Add('Location', $Location)
     $IoTThingParameter.Add('CACertificatePem', $caCertPEM)
     $IoTThingParameter.Add('CertificatePem', $CertPEM)
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Registering IoT Thing with AWS named $Name with serial number $SerialNumber"
+    Add-InfoLog $outputLog $logFile "Registering IoT Thing with AWS named $Name with serial number $SerialNumber"
     $response = Register-IOTThing `
         -TemplateBody $TemplateBody `
         -Parameter $IoTThingParameter `
         -Region $AWSRegion `
         -Credential $AWSCredential
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Registered thing with ARN $($($response.ResourceArns.thing))"
+    Add-InfoLog $outputLog $logFile "Registered thing with ARN $($($response.ResourceArns.thing))"
     return $response.ResourceArns
 }
 
 function Register-CertificateWithAWS {
     param($CertPEM, $caCertPEM, $AWSCredential)
     # Register certificate with AWS
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Registering certificate with AWS"
+    Add-InfoLog $outputLog $logFile "Registering certificate with AWS"
     $RegisterIoTResponse = Register-IOTCertificate `
         -CaCertificatePem $caCertPEM `
         -CertificatePem $CertPEM `
@@ -201,7 +199,7 @@ function Register-CertificateWithAWS {
         -Region $AWSRegion `
         -Credential $AWSCredential
     if ([string]::IsNullOrWhiteSpace($RegisterIoTResponse.CertificateArn)) { throw "Did not find AWS ARN" }
-    Update-LogFile -Path $outputFile -Write $outputLog -Content "Registered IoT certificate with ARN $($RegisterIoTResponse.CertificateArn) and certificate ID $($RegisterIoTResponse.CertificateId)"
+    Add-InfoLog $outputLog $logFile "Registered IoT certificate with ARN $($RegisterIoTResponse.CertificateArn) and certificate ID $($RegisterIoTResponse.CertificateId)"
     return $RegisterIoTResponse.CertificateArn
 }
 
@@ -216,51 +214,50 @@ if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true }
 
 # Generate a log file for tracing if OutputLog is true
 if ($outputLog) { 
-    $logFile = Initialize-KFLogs $outputLog $LogPath "AWSEnrollLog_" 5 } 
-Update-LogFile -Path $logFile -Write $outputLog -Content "Starting Trace: $(Get-Date -format G)"
+    $logFile = Initialize-KFLogs $outputLog $LogPath "AWSEnrollLog_" 5 
+} 
+Add-InfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)"
 
-try
-	{
+try {
     # Find certificate serial number from context hash table
-	$certSN = $context["SN"]
-    Update-LogFile -Path $logFile -Write $outputLog -Content "Context variable 'SN' = $certSN"
-	if ([string]::IsNullOrWhiteSpace($certSN)) { throw "Context variable 'SN' required" }
+    $certSN = $context["SN"]
+    Add-InfoLog $outputLog $logFile "Context variable 'SN' = $certSN"
+    if ([string]::IsNullOrWhiteSpace($certSN)) { throw "Context variable 'SN' required" }
     
     # Determine if invocation is a test
-	[bool]$testOnly = $false
-	if ($context["TestOnly"] -like "Y*" ) { $testOnly = $true }
-    Update-LogFile -Path $logFile -Write $outputLog -Content "Is test? $testOnly"
+    [bool]$testOnly = $false
+    if ($context["TestOnly"] -like "Y*" ) { $testOnly = $true }
+    Add-InfoLog $outputLog $logFile "Is test? $testOnly"
 
     # Use context to determine AWS region
     $AWSRegion = $context["AWSRegion"]
-    Update-LogFile -Path $logFile -Write $outputLog -Content "Using $AWSRegion as AWS region"
+    Add-InfoLog $outputLog $logFile "Using $AWSRegion as AWS region"
     if ([string]::IsNullOrWhiteSpace($AWSRegion)) { throw "Context variable 'AWSRegion' required" }
 
     # Find certificate common name from context hash table
-	$certCN = $context["CN"]
-    Update-LogFile -Path $logFile -Write $outputLog -Content "Context variable 'CN' = $certCN"
-	if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }    
+    $certCN = $context["CN"]
+    Add-InfoLog $outputLog $logFile "Context variable 'CN' = $certCN"
+    if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }    
 
-	# By default, expiration handlers send emails. Turn this off
-    Update-LogFile -Path $logFile -Write $outputLog -Content "Turning off emailing"
-	$context["sendEMail"] = "false"
+    # By default, expiration handlers send emails. Turn this off
+    Add-InfoLog $outputLog $logFile "Turning off emailing"
+    $context["sendEMail"] = "false"
 
     $CertID_IssuerDN = Get-CertIDFromSN -SN $certSN # This function returns hash table for cert ID and issuer DN
     $IssuerDN = $CertID_IssuerDN['IssuerDN'] # Assign values from hash table into variables
     $certId = $CertID_IssuerDN['certId']
-	if ([string]::IsNullOrWhiteSpace($certId)) { throw "Did not get back a certId" }
+    if ([string]::IsNullOrWhiteSpace($certId)) { throw "Did not get back a certId" }
     
     # Check if cert is agent cert
     $agentCert = Get-AgentCertStatus -certId $certId
 
-	if ($false -eq $agentCert)
-	{	
+    if ($false -eq $agentCert) {	
         # Now that we know that the certifcate is not an agent cert, we can use the issuer DN to get the CA certificate
         $caCertID = Get-CertIDfromDN -IssuerDN $IssuerDN
         if ([string]::IsNullOrWhiteSpace($CertId)) { throw "Did not get back a CA certId from issuer DN" }
 
-	    # Using CA cert ID, call get-certfromid to return CA PEM certificate
-	    $unencodedCACertPEM = Get-CertFromID -ID $caCertID
+        # Using CA cert ID, call get-certfromid to return CA PEM certificate
+        $unencodedCACertPEM = Get-CertFromID -ID $caCertID
 
         # Finally, we can get the certificate data from the certificate ID from above
         $unencodedCertPEM = Get-CertFromID -ID $certId
@@ -271,27 +268,28 @@ try
 
         else {
             $AWSCredential = InitializeAWS -jsonCredsPath $jsonCredsPath
-			if ([string]::IsNullOrEmpty($AWSCredential)) {
-                Update-LogFile -Path $outputFile -Write $outputLog -Content "Failed to create AWS credentials"
-			throw "Failed to create AWS credentials"
-			}
+            if ([string]::IsNullOrEmpty($AWSCredential)) {
+                Add-InfoLog $outputLog $logFile "Failed to create AWS credentials"
+                throw "Failed to create AWS credentials"
+            }
             
             if ($EnrollThing) {
                 $ARNs = Register-CertificateAndThing -Name $certCN -SerialNumber $certSN -Location 'AZ' -CertPEM $unencodedCertPEM -caCertPEM $unencodedCACertPEM -AWSCredential $AWSCredential
                 $CertARN = $ARNs.certificate
                 $ThingARN = $ARNs.thing
-            } else {
+            }
+            else {
                 $CertARN = Register-CertificateWithAWS -CertPEM $unencodedCertPEM -caCertPEM $unencodedCACertPEM -AWSCredential $AWSCredential
             }
             # Update KF metadata for certificate ARN returned by registration
             Update-KFCertMetadata -MetadataField "AWS-CertARN" -CertId $certId -NewValue $CertARN
         }
-     }
+    }
 }
 catch {
-    Update-LogFile -Path $outputFile -Write $outputLog -Content $_.Exception.Message
-    Update-LogFile -Path $outputFile -Write $outputLog -Content $_
+    Add-InfoLog $outputLog $logFile $_.Exception.Message
+    Add-InfoLog $outputLog $logFile $_
 }
 
-Update-LogFile -Path $outputFile -Write $outputLog -Content "Exiting script: $(Get-Date -format G)"
-Update-LogFile -Path $outputFile -Write $outputLog -Content "==================="
+Add-InfoLog $outputLog $logFile "Exiting script: $(Get-Date -format G)"
+Add-InfoLog $outputLog $logFile "==================="
