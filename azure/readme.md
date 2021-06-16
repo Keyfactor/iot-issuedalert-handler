@@ -21,6 +21,7 @@ These include the Azure IoT Hub Name, Application Id, Tenant Id, Subscription Gu
 * OutputLog : Y to enable logging, anything else for not.
 * ScriptName : the string path (on the keyfactor platform windows host) for the script.
 * SN : the serial number of the cert.  
+![image](https://user-images.githubusercontent.com/78758042/122282242-09d56000-cea0-11eb-8b30-59b726acb7d9.png)
 
 
 
