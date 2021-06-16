@@ -55,8 +55,25 @@ try {
         Add-InfoLog $outputLog $logFile "adding device to Azure IoT Hub" 
         try {
             Connect-AzAccount -CertificateThumbprint $azureTP -ApplicationId $ApplicationId -Tenant $TenantId -ServicePrincipal
-            Add-AzIotHubDevice -ResourceId "/subscriptions/$SubGuid/resourceGroups/test_resource/providers/Microsoft.Devices/IotHubs/$HubName" -DeviceId $certCN -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certThumbprint
-            Add-InfoLog $outputLog $logFile "Created IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)" 
+
+            $newDeviceName = $certCN
+
+            #get list of existing iotHub devices
+            $iotHubDevices = Get-AzIotHubDevice -ResourceGroupName $ResourceGroup -IotHubName $HubName
+            [boolean] $addDevice = $true
+            foreach ($device IN $iotHubDevices) {
+                if ($device.Id -eq $newDeviceName) {
+                    #device is already in iot hub -> update hash
+                    $azResult = Set-AzIotHubDevice -ResourceGroupName $ResourceGroup -IotHubName $HubName -DeviceId $newDeviceName  -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certTP
+                    Add-InfoLog $outputLog $logFile "Updated IoTHubDevice with DeviceID of: $($certCN) to have new Thumbprint: $($certThumbprint): $azResult" 
+                    $addDevice = $false #don't add it again
+                }
+            }
+            if ($addDevice) {
+                #todo add better logging to this, sometimes the log looks like it completed, but it did not. 
+                $azResult = Add-AzIotHubDevice -ResourceId "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Devices/IotHubs/$HubName" -DeviceId $certCN -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certTP
+                Add-InfoLog $outputLog $logFile "Created IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)" 
+            }
         }
         catch {
             Add-ErrorLog $outputLog $logFile "an error ocurred while creating an IotHub Device with CN of: $($certCN)" 
