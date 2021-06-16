@@ -1,5 +1,5 @@
 # iot
-## Issuedalert-handler
+## Alert-handler
 
 # iot-issuedalert-handler
 Command-line scripts to be run by issued alert handlers. 
