@@ -22,14 +22,6 @@ These include the Azure IoT Hub Name, Application Id, Tenant Id, Subscription Gu
 * ScriptName : the string path (on the keyfactor platform windows host) for the script.
 * SN : the serial number of the cert.  
 
-# CheckMetadataAndUpdateIotHub.ps1 
-an example of a script that runs via the windows scheduler service, it'll check the certificate metadata at specified interval and then update to IotHub as necessary. This script enables or disables the device in IotHub based on an "enabled" metadata field.  
-![image](https://user-images.githubusercontent.com/78758042/119694179-d99b2400-be01-11eb-84a0-acecb1faaaff.png)
-
-# RemoveDevice.ps1
-another example of a script that runs via the windows scheduler.  it checks for expired or revoked certs and disables them in IotHub, as expired/revoked certificates stay that way, it keeps an internal csv file to reduce the amount of queries to IotHub. 
-![image](https://user-images.githubusercontent.com/78758042/119694622-3d255180-be02-11eb-9470-3d703f9250c7.png)
-
 
 
 
