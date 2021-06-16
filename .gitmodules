@@ -1,3 +1,0 @@
-[submodule "powershellModules"]
-	path = powershellModules
-	url = https://github.com/Keyfactor/powershellModules.git
