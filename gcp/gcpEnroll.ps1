@@ -11,7 +11,7 @@ Import-Module $ScriptDir\..\powershellModules\kf_logging.psm1
 
 # Specify the API URL base.
 # Note that when we call the API we use Windows Auth:
-#	1.) Ensure that Windows Authentication is enabled for the KeyfactorAPI endpoint (DefaultWebsite > KeyfactorAPI) in IIS
+#   1.) Ensure that Windows Authentication is enabled for the KeyfactorAPI endpoint (DefaultWebsite > KeyfactorAPI) in IIS
 #   2.) For normal operation the Keyfactor Service (Timer Service) account is used -- Make sure this account has the appropriate Keyfactor & AD rights
 #   3.) For testing from the portal, the Application Pool account is used -- Make sure this account has the appropriate Keyfactor & AD rights
 #
@@ -115,6 +115,7 @@ try {
 		Add-KFInfoLog $outputLog $logFile "gcp access token: $token"
 
 		$gURL = "https://cloudiot.googleapis.com/v1/projects/$gProjectId/locations/$gProjectLocation/registries/$gProjectRegistry/devices"
+		#Double check the format to match the template used available options: RSA_X509_PEM, RSA_PEM, ES256_PEM or ES256_X509_PEM
 		$pubKeyObj = @{"format" = "ES256_X509_PEM"; "key" = $unencoded }
 		$credObj = @{"expirationTime" = $expiryDate; "publicKey" = $pubKeyObj }
 		$gBodyObj = @{"id" = $clientMachine; "credentials" = $credObj; "blocked" = $false }
