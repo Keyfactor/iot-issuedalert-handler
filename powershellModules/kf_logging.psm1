@@ -5,7 +5,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 
-function Add-InfoLog {
+function Add-KFInfoLog {
     <#
     .SYNOPSIS
     Adds the $message to the logfile as it's own line marked as [I] to be used for information,
@@ -15,8 +15,8 @@ function Add-InfoLog {
     .PARAMETER message - the string contents to write to the file
     #>
 param(
-    [boolean]$OutputLog, 
-    $LogFilePath, 
+    [boolean]$OutputLog,
+    $LogFilePath,
     $message)
 if ($OutputLog) {
     $outMsg = (Get-Date -Format "hh:mm") + "[I] $message"
@@ -24,8 +24,7 @@ if ($OutputLog) {
     Write-Host $outMsg -ForegroundColor white
 }
 }
-Export-ModuleMember -Function Add-InfoLog
-function Add-ErrorLog {
+function Add-KFErrorLog {
     <#
     .SYNOPSIS
     Adds the $message to the logfile as it's own line marked as [E] to be used as an Error Message,
@@ -35,8 +34,8 @@ function Add-ErrorLog {
     .PARAMETER message - the string contents to write to the file
     #>
 param(
-    [boolean]$OutputLog, 
-    $LogFilePath, 
+    [boolean]$OutputLog,
+    $LogFilePath,
     $message)
 if ($OutputLog) {
     $outMsg = (Get-Date -Format "hh:mm") + "[E] $message"
@@ -44,8 +43,7 @@ if ($OutputLog) {
     Write-Host $outMsg -ForegroundColor red
 }
 }
-Export-ModuleMember -Function Add-ErrorLog
-function Add-WarningLog {
+function Add-KFWarningLog {
     <#
     .SYNOPSIS
     Adds the $message to the logfile as it's own line marked as [W] to be used as a Warning Message,
@@ -55,8 +53,8 @@ function Add-WarningLog {
     .PARAMETER message - the string contents to write to the file
     #>
 param(
-    [boolean]$OutputLog, 
-    $LogFilePath, 
+    [boolean]$OutputLog,
+    $LogFilePath,
     $message)
 if ($OutputLog) {
     $outMsg = (Get-Date -Format "hh:mm") + "[W] $message"
@@ -64,7 +62,6 @@ if ($OutputLog) {
     Write-Host $outMsg -ForegroundColor Yellow
 }
 }
-Export-ModuleMember -Function Add-WarningLog
 function Initialize-KFLogs {
     <#
     .SYNOPSIS
@@ -100,4 +97,4 @@ function Initialize-KFLogs {
     }
     return $LogFileName
 }
-Export-ModuleMember -Function 'Initialize-KFLogs'
+Export-ModuleMember -Function * -Alias *
