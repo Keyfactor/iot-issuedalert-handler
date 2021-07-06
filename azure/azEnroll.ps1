@@ -17,21 +17,32 @@ try {
     [bool]$outputLog = $false
     if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true }
     # Generate a log file for tracing if OutputLog is true
-    $logFile = Initialize-KFLogs $outputLog "azEnroll" 5 #keep no more than 5 logs at a time
+    $logFile = Initialize-KFLogs $outputLog "C:\CMS\scripts\azure\" "azEnroll" 5 #keep no more than 5 logs at a time
     Add-KFInfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)"
 
-    $certTP = $context["thumbprint"]
-    if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'thumbprint' required" }
-    Add-KFInfoLog $outputLog $logFile "Context variable 'thumbprint' = $certTP"
+    $certThumbprint = $context["thumbprint"]
+    if ([string]::IsNullOrWhiteSpace($certThumbprint)) { throw "Context variable 'thumbprint' required" }
+    Add-KFInfoLog $outputLog $logFile "Context variable 'thumbprint' = $certThumbprint"
 
     $certCN = $context["CN"]
-    if ([string]::IsNullOrWhiteSpace($certTP)) { throw "Context variable 'CN' required" }
+    if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }
     Add-KFInfoLog $outputLog $logFile "Context variable 'CN' = $certCN"
+    $certDN = $context["DN"]
+    if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
+    Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN"
+
+    if ($certDN -notmatch 'iot-id-cert') {
+        Add-KFWarningLog $outputLog $logFile "Certificate not an iot id cert, exiting"
+        exit
+    }
 
     # These values should be filled in with the appropriate values from azure Cloud
     $HubName = $context["AzHubName"]
     if ([string]::IsNullOrWhiteSpace($HubName)) { throw "Context variable 'AzHubName' required" }
     Add-KFInfoLog $outputLog $logFile "Az IoT Hub Name: $HubName"
+    $ResourceGroup = $context["AzResourceGroupName"]
+    if ([string]::IsNullOrWhiteSpace($ResourceGroup)) { throw "Context variable 'AzResourceGroupName' required" }
+    Add-KFInfoLog $outputLog $logFile "Az Resource Group Name: $HubName"
     $ApplicationId = $context["AzAppId"]
     if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzAppId' required" }
     Add-KFInfoLog $outputLog $logFile "Az IoT Hub Application Id: $ApplicationId"
@@ -65,14 +76,14 @@ try {
             foreach ($device IN $iotHubDevices) {
                 if ($device.Id -eq $newDeviceName) {
                     #device is already in iot hub -> update hash
-                    $azResult = Set-AzIotHubDevice -ResourceGroupName $ResourceGroup -IotHubName $HubName -DeviceId $newDeviceName  -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certTP
+                    $azResult = Set-AzIotHubDevice -ResourceGroupName $ResourceGroup -IotHubName $HubName -DeviceId $newDeviceName  -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certThumbprint
                     Add-KFInfoLog $outputLog $logFile "Updated IoTHubDevice with DeviceID of: $($certCN) to have new Thumbprint: $($certThumbprint): $azResult"
                     $addDevice = $false #don't add it again
                 }
             }
             if ($addDevice) {
                 #todo add better logging to this, sometimes the log looks like it completed, but it did not.
-                $azResult = Add-AzIotHubDevice -ResourceId "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Devices/IotHubs/$HubName" -DeviceId $certCN -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certTP
+                $azResult = Add-AzIotHubDevice -ResourceId "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Devices/IotHubs/$HubName" -DeviceId $certCN -AuthMethod "x509_thumbprint" -PrimaryThumbprint $certThumbprint
                 Add-KFInfoLog $outputLog $logFile "Created IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)"
             }
         }
