@@ -74,7 +74,7 @@ try {
 		Add-KFInfoLog $outputLog $logFile "iot id cert, using certCN: $certCN as devicename"
 		#get machine name out of cert CN
 		$clientMachine = $certCN
-		# Send an API call to grab the cetificate using the cert thumbprint
+		# Send an API call to grab the certificate using the cert thumbprint
 		$headers = @{}
 		$headers.Add('Content-Type', 'application/json')
 		$headers.Add('x-keyfactor-requested-with', 'APIClient')
