@@ -186,7 +186,7 @@ function Initialize-KFLogs-Directory {
     $existingDirs = (Get-ChildItem -Path $LogFolderPath | Where-Object {$_.PSIsContainer -and $_.Name.Contains($logFolderPrefix+"-")} | Sort-Object -Descending) #only count folders named appropriatelyj
     if ($existingDirs.Count -gt $maxFolderCount) { #we have too many
             Add-KFInfoLog $OutputLog $myFilePath "$i, $($existingDirs.Count), $maxFolderCount"
-        for ($i = $maxFolderCount; $i -lt $existingDirs.Count; i++) {
+        for ($i = $maxFolderCount; $i -lt $existingDirs.Count; $i++) {
             Add-KFInfoLog $OutputLog $myFilePath "deleting $i-th oldest log file folder: $($existingDirs[$i])"
             Remove-Item $existingDirs[$i].PSPath -Recurse #this will also delete all the contents
         }
