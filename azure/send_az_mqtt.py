@@ -13,7 +13,7 @@ if (sys.argv[1]):
     device_id = sys.argv[1]
     print ("device_id input:", device_id)
 
-path_to_root_cert = "/home/keyfactor/Keyfactor-CAgent/digicert_baltimore.cer"
+path_to_root_cert = "/home/keyfactor/Keyfactor-CAgent/DigiCertGlobalRootG2.pem"
 iot_hub_name = "keyfactor-iot-demos"
 
 def on_connect(client, userdata, flags, rc):
@@ -36,8 +36,8 @@ client.username_pw_set(username=iot_hub_name+".azure-devices.net/" +
                        device_id + "/?api-version=2018-06-30", password=None)
 
 # Set the certificate and key paths on your client
-cert_file = "/home/keyfactor/iot.pem"
-key_file = "/home/keyfactor/iot.key"
+cert_file = "/home/keyfactor/Keyfactor-CAgent/certs/IoT.pem"
+key_file = "/home/keyfactor/Keyfactor-CAgent/certs/IoT.key"
 
 client.tls_set(ca_certs=path_to_root_cert, certfile=cert_file, keyfile=key_file,
                cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2, ciphers=None)
