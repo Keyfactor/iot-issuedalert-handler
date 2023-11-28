@@ -51,9 +51,10 @@ try {
     $TenantId = $context["azTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Tenant Id : $TenantId"
-    $azureCertPath = $context["azCertPath"]
-    if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
-    Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
+    #testdrive optimzation, fill in with FILENAME
+    $azureCertPath = AZCERTFILENAME
+    #if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
+    #Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
 
     # By default, expiration handlers send emails. Turn this off
     Add-KFInfoLog $outputLog $logFile "Turning off emailing"
@@ -71,6 +72,8 @@ try {
     $uri = "$($apiURL)/Certificates/Download"
     $body = @{"Thumbprint" = $certThumbprint } | ConvertTo-Json -Compress
     $headers.Add('x-certificateformat', 'PEM')
+    #testdrive optimization, inject the authheader
+    $headers.Add('Authorization', 'Basic KFAUTHHEADER');
     Add-KFInfoLog $outputLog $logFile "Preparing a POST from $uri"
     $response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -Headers $headers -UseDefaultCredentials
     Add-KFTraceLog $outputLog $logFile "Got back $($response)"

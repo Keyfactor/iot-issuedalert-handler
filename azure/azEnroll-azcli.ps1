@@ -51,9 +51,10 @@ try {
     $TenantId = $context["azTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Tenant Id : $TenantId"
-    $azureCertPath = $context["azCertPath"]
-    if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
-    Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
+    #testdrive optimzation, fill in with FILENAME
+    $azureCertPath = AZCERTFILENAME
+    #if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
+    #Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
 
     # By default, expiration handlers send emails. Turn this off
     Add-KFInfoLog $outputLog $logFile "Turning off emailing"
