@@ -34,6 +34,7 @@ try {
     $headers.Add('Content-Type', 'application/json')
     $headers.Add('x-keyfactor-requested-with', 'APIClient')
     $headers.Add('x-keyfactor-api-version', '1')
+    $headers.Add('Authorization', 'Basic KFAUTHHEADER')
     $uri = "$($apiURL)/Certificates?collectionId=0&pq.queryString=thumbprint%20-eq%20%22$TP%22&IncludeMetadata=true"
     Add-KFInfoLog $outputLog $logFile "Preparing a GET from $uri"
     $targetCert = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -UseDefaultCredentials
