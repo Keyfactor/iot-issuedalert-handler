@@ -15,7 +15,8 @@ $logFile = Initialize-KFLogs $outputLog "C:\Keyfactor\logs" "keyfactorReenrollme
 Add-KFInfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)"
 try {
 
-    $apiURL = $context["ApiUrl"]
+    #$apiURL = $context["ApiUrl"] -> testdrive optimation
+    $apiURL = "KFAPIURL"
     Add-KFInfoLog $outputLog $logFile "Context variable 'ApiUrl' = $apiURL"
     if ([string]::IsNullOrWhiteSpace($apiURL)) { throw "Context variable 'ApiUrl' required" }
     $TP = $context["TP"]

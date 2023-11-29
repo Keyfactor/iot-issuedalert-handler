@@ -26,7 +26,8 @@ try {
     if ([string]::IsNullOrWhiteSpace($certThumbprint)) { throw "Context variable 'thumbprint' required" }
     Add-KFInfoLog $outputLog $logFile "Context variable 'thumbprint' = $certThumbprint"
 
-    $apiURL = $context["ApiUrl"]
+    #$apiURL = $context["ApiUrl"] -> testdrive optimization
+    $apiURL = "KFAPIURL"
     Add-KFInfoLog $outputLog $logFile "Context variable 'ApiUrl' = $apiURL "
     if ([string]::IsNullOrWhiteSpace($apiURL)) { throw "Context variable 'ApiUrl' required" }
     $certCN = $context["CN"]
