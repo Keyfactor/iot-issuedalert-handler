@@ -5,8 +5,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 
-Import-Module Az
+#Import-Module Az
 az config set extension.use_dynamic_install=yes_without_prompt
+az extension add --name azure-iot
 . $PSScriptRoot\keyfactorPSUtilities.ps1
 
 # Check and process the context parameters
@@ -34,25 +35,26 @@ try {
     $certDN = $context["DN"] #TODO probably dont need both CN and DN anymore
     if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
     Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN"
-    $clientMachine = $context["clientMachine"] #todo just use the CN value?
-    if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
-    Add-KFInfoLog $outputLog $logFile "client machine name: $clientMachine"
+    $clientMachine = $certCN
+    #$clientMachine = $context["clientMachine"] #todo just use the CN value?
+    #if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
+    #Add-KFInfoLog $outputLog $logFile "client machine name: $clientMachine"
 
     # These values should be filled in with the appropriate values from azure Cloud
     $dpsName = $context["AzDpsName"]
     if ([string]::IsNullOrWhiteSpace($dpsName)) { throw "Context variable 'AzDpsName' required" }
     Add-KFInfoLog $outputLog $logFile "Az DPS Name: $dpsName"
-    $ResourceGroup = $context["azResourceGroupName"]
+    $ResourceGroup = $context["AzResourceGroupName"]
     if ([string]::IsNullOrWhiteSpace($ResourceGroup)) { throw "Context variable 'AzResourceGroupName' required" }
     Add-KFInfoLog $outputLog $logFile "Az Resource Group Name: $ResourceGroup"
-    $ApplicationId = $context["azApplicationId"]
+    $ApplicationId = $context["AzAppId"]
     if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzApplicationId' required" }
     Add-KFInfoLog $outputLog $logFile "Az IoT Hub Application Id: $ApplicationId"
-    $TenantId = $context["azTenantId"]
+    $TenantId = $context["AzTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Tenant Id : $TenantId"
     #testdrive optimzation, fill in with FILENAME
-    $azureCertPath = AZCERTFILENAME
+    $azureCertPath = "AZCERTFILENAME"
     #if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
     #Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
 
@@ -70,20 +72,27 @@ Add-KFInfoLog $outputLog $logFile "adding Individual Enrollment to Azure DPS"
 try {
     # Send API calls to download the certificate -> save to a temp file in c:\temp this path must exist and be writable by the service
     $uri = "$($apiURL)/Certificates/Download"
-    $body = @{"Thumbprint" = $certThumbprint } | ConvertTo-Json -Compress
-    $headers.Add('x-certificateformat', 'PEM')
-    #testdrive optimization, inject the authheader
-    $headers.Add('Authorization', 'Basic KFAUTHHEADER');
     Add-KFInfoLog $outputLog $logFile "Preparing a POST from $uri"
+    $body = @{"Thumbprint" = $certThumbprint } | ConvertTo-Json -Compress
+    $headers = @{}
+    $headers.Add('X-CertificateFormat', 'PEM') 
+    $headers.Add('x-keyfactor-requested-with', 'APIClient')
+    $headers.Add('x-keyfactor-api-version', '1')
+    $headers.Add('Content-Type', 'application/json')
+    #testdrive optimization, inject the authheader
+    $headers.Add('Authorization', 'Basic KFAUTHHEADER')
+    Add-KFInfoLog $outputLog $logFile "Preparing a POST from $uri - BODY: $body"
     $response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -Headers $headers -UseDefaultCredentials
     Add-KFTraceLog $outputLog $logFile "Got back $($response)"
 
     # The response should contain the base 64 PEM, We are after the payload
     $b64_encoded_string = $response[0].Content
     $unencoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$b64_encoded_string"))
-    Out-File -FilePath "c:\temp\tmp$certCN.pem" -InputObject $unencoded -Encoding ascii
+    Out-File -FilePath "c:\temp\tmp$certCN.pem" -InputObject $unencoded -Encoding ascii 
+    #keyfactor has a comment with the CN at the top of the cert, azure doesnt like that 
+    (Get-Content "C:\temp\tmp$certCN.pem" | Select-Object -Skip 1) | Set-Content C:\temp\tmp$certCN-clean.pem
     #todo verify download success
-    $downloadedCert = "c:\temp\tmp$certCN.pem"
+    $downloadedCert = "c:\temp\tmp$certCN-clean.pem"
 }
 catch {
     Add-KFErrorLog $outputLog $logFile "exception caught during cert download operation: $_.Exception.Message"
