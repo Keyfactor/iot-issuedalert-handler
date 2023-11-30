@@ -33,9 +33,13 @@ try {
     $certCN = $context["CN"]
     if ([string]::IsNullOrWhiteSpace($certCN)) { throw "Context variable 'CN' required" }
     Add-KFInfoLog $outputLog $logFile "Context variable 'CN' = $certCN"
-    $certDN = $context["DN"] #TODO probably dont need both CN and DN anymore
-    if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
-    Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN"
+    $certDN = $context["DN"]
+    if ($certDN -Match 'iot-id-cert') {
+        Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN matches iot-id-cert, adding to DPS"
+    } else {
+        Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN does not contain iot-id-cert, exiting"
+        exit
+    }
     $clientMachine = $certCN
     #$clientMachine = $context["clientMachine"] #todo just use the CN value?
     #if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
