@@ -116,7 +116,7 @@ try {
 
     Add-KFInfoLog $outputLog $logFile "calling: az iot dps enrollment show --dps-name $($dpsName) --resource-group $($ResourceGroup) --enrollment-id $($clientMachine) 2>&1"
     $listJob = Start-Job -ScriptBlock {
-            (az iot hub dps enrollment show `
+            (az iot dps enrollment show `
             --dps-name $($args[0]) `
             --resource-group $($args[1]) `
             --enrollment-id $($args[2])) 2>&1
