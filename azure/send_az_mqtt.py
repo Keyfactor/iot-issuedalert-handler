@@ -36,7 +36,7 @@ client.username_pw_set(username=iot_hub_name+".azure-devices.net/" +
                        device_id + "/?api-version=2018-06-30", password=None)
 
 # Set the certificate and key paths on your client
-cert_file = "/home/keyfactor/Keyfactor-CAgent/certs/IoT.pem"
+cert_file = "/home/keyfactor/Keyfactor-CAgent/certs/IoT.store"
 key_file = "/home/keyfactor/Keyfactor-CAgent/certs/IoT.key"
 
 client.tls_set(ca_certs=path_to_root_cert, certfile=cert_file, keyfile=key_file,
