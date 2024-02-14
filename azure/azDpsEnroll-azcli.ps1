@@ -40,6 +40,7 @@ try {
         Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN does not contain iot-id-cert, exiting"
         exit
     }
+
     $clientMachine = $certCN
     #$clientMachine = $context["clientMachine"] #todo just use the CN value?
     #if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
@@ -80,7 +81,7 @@ try {
     Add-KFInfoLog $outputLog $logFile "Preparing a POST from $uri"
     $body = @{"Thumbprint" = $certThumbprint } | ConvertTo-Json -Compress
     $headers = @{}
-    $headers.Add('X-CertificateFormat', 'PEM') 
+    $headers.Add('X-CertificateFormat', 'PEM')
     $headers.Add('x-keyfactor-requested-with', 'APIClient')
     $headers.Add('x-keyfactor-api-version', '1')
     $headers.Add('Content-Type', 'application/json')
@@ -93,8 +94,8 @@ try {
     # The response should contain the base 64 PEM, We are after the payload
     $b64_encoded_string = $response[0].Content
     $unencoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("$b64_encoded_string"))
-    Out-File -FilePath "c:\temp\tmp$certCN.pem" -InputObject $unencoded -Encoding ascii 
-    #keyfactor has a comment with the CN at the top of the cert, azure doesnt like that 
+    Out-File -FilePath "c:\temp\tmp$certCN.pem" -InputObject $unencoded -Encoding ascii
+    #keyfactor has a comment with the CN at the top of the cert, azure doesnt like that
     (Get-Content "C:\temp\tmp$certCN.pem" | Select-Object -Skip 1) | Set-Content C:\temp\tmp$certCN-clean.pem
     #todo verify download success
     $downloadedCert = "c:\temp\tmp$certCN-clean.pem"

@@ -31,15 +31,15 @@ try {
     $certDN = $context["DN"] #TODO probably dont need both CN and DN anymore
     #if ([string]::IsNullOrWhiteSpace($certDN)) { throw "Context variable 'DN' required" }
     #Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN"
-    if ($certDN -Match 'iot-id-cert') { 
-        Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN matches iot-id-cert, adding to DPS"
+    if ($certDN -Match 'iot-id-cert') {
+        Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN matches iot-id-cert, adding to IotHub"
     } else {
         Add-KFInfoLog $outputLog $logFile "Context variable 'DN' = $certDN does not contain iot-id-cert, exiting"
         exit
     }
 
-    $clientMachine = $context["clientMachine"]
-    if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
+    $clientMachine = $certCN
+    #if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
     Add-KFInfoLog $outputLog $logFile "client machine name: $clientMachine"
 
     # These values should be filled in with the appropriate values from azure Cloud
@@ -59,7 +59,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Tenant Id : $TenantId"
     #testdrive optimzation, fill in with FILENAME
-    $azureCertPath = AZCERTFILENAME
+    $azureCertPath = "AZCERTFILENAME"
     #if ([string]::IsNullOrWhiteSpace($azureCertPath)) { throw "Context variable 'azCertPath' required" }
     #Add-KFInfoLog $outputLog $logFile "Az Service Principal Certificate path : $azureCertPath"
 
