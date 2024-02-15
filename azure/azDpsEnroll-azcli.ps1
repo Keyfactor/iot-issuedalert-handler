@@ -55,7 +55,7 @@ try {
     Add-KFInfoLog $outputLog $logFile "Az Resource Group Name: $ResourceGroup"
     $ApplicationId = $context["AzAppId"]
     if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzApplicationId' required" }
-    Add-KFInfoLog $outputLog $logFile "Az IoT Hub Application Id: $ApplicationId"
+    Add-KFInfoLog $outputLog $logFile "Az Application Id: $ApplicationId"
     $TenantId = $context["AzTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Tenant Id : $TenantId"
@@ -129,9 +129,9 @@ try {
         Add-KFInfoLog $outputLog $logFile "az iot dps enrollment show response from azure: $listRes"
         if ($listRes -notcontains "Not Found") {
             $devId = $listRes | Where-Object { $_ -match 'deviceId' } # loops over every line looking for 'deviceId'
-            Add-KFInfoLog $outputLog $logFile "az iot hub device-identity show response looped : $devId"
+            Add-KFInfoLog $outputLog $logFile "az iot dps enrollment response looped : $devId"
             if (![string]::IsNullOrWhiteSpace($devId)) {
-                Add-KFInfoLog $outputLog $logFile "$($newDeviceName) already exists in iot hub, updating thumbprint"
+                Add-KFInfoLog $outputLog $logFile "$($newDeviceName) already exists in dps, updating thumbprint"
                 Add-KFInfoLog $outputLog $logFile "calling: az iot dps enrollment update --resource-group $($ResourceGroup) --dps-name $($dpsName) --enrollment-id $($certCN) --certificate-path $($downloadedCert) 2>&1"
                 $azUpdateResult = az iot dps enrollment update --resource-group $($ResourceGroup) --dps-name $($dpsName) --enrollment-id $($certCN) --certificate-path $($downloadedCert) 2>&1
                 Add-KFInfoLog $outputLog $logFile "Updated individual Enrollment with DeviceID of: $($certCN) to have new Certificate: $azUpdateResult"
