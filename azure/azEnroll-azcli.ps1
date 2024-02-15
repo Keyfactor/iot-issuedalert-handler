@@ -7,6 +7,7 @@
 
 Import-Module Az
 az config set extension.use_dynamic_install=yes_without_prompt
+az extension add --name azure-iot
 . $PSScriptRoot\keyfactorPSUtilities.ps1
 
 # Check and process the context parameters
@@ -122,16 +123,17 @@ try {
     if ($addDevice) {
         Add-KFInfoLog $outputLog $logFile "Adding IoTHubDevice with DeviceID of: $($certCN) and Thumbprint: $($certThumbprint)" $session # adds both primary and secondary thumbprint as the same if not already set
 
-        [boolean] $enableEdge = $true #change this boolean for non edge enabled
-        if ($enableEdge) {
+        #[boolean] $enableEdge = $false #change this boolean to set edge enabled
+        #TESTDRIVE version: no edge enabling
+        #if ($enableEdge) {
             #this is for edge enabled
-            Add-KFInfoLog $outputLog $logFile "calling: az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) --edge-enabled="true" 2>&1"
-            $azAddResult = az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) --edge-enabled="true" 2>&1
-        }
-        else {
+            #Add-KFInfoLog $outputLog $logFile "calling: az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) --edge-enabled="true" 2>&1"
+            #$azAddResult = az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) --edge-enabled="true" 2>&1
+        #}
+        #else {
             Add-KFInfoLog $outputLog $logFile "calling: az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) 2>&1"
             $azAddResult = az iot hub device-identity create --device-id $($newDeviceName) -n $($HubName) --resource-group $($ResourceGroup) --auth-method "x509_thumbprint" --primary-thumbprint $($certThumbprint) --secondary-thumbprint $($certThumbprint) 2>&1
-        }
+        #}
         Add-KFInfoLog $outputLog $logFile "response from azure: $azAddResult"
     }
 }

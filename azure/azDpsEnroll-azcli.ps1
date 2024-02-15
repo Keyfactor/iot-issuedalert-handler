@@ -44,7 +44,7 @@ try {
     $clientMachine = $certCN
     #$clientMachine = $context["clientMachine"] #todo just use the CN value?
     #if ([string]::IsNullOrWhiteSpace($clientMachine)) { throw "Context variable 'clientMachine' required" }
-    #Add-KFInfoLog $outputLog $logFile "client machine name: $clientMachine"
+    Add-KFInfoLog $outputLog $logFile "client machine name: $clientMachine"
 
     # These values should be filled in with the appropriate values from azure Cloud
     $dpsName = $context["AzDpsName"]
