@@ -17,7 +17,7 @@ az extension add --name azure-iot
 [bool]$outputLog = $true
 #if ($context["OutputLog"] -like "Y*" ) { $outputLog = $true }
 # Generate a log file for tracing if OutputLog is true
-$logFile = Initialize-KFLogs $outputLog "C:\keyfactor\logs\" "azEnroll" 5 #keep no more than 5 logs at a time
+$logFile = Initialize-KFLogs $outputLog "C:\keyfactor\logs\external" "azEnroll" 5 #keep no more than 5 logs at a time
 Add-KFInfoLog $outputLog $logFile "Starting Trace: $(Get-Date -format G)"
 
 try {
