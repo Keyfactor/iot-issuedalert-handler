@@ -51,7 +51,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($ResourceGroup)) { throw "Context variable 'AzResourceGroupName' required" }
     Add-KFInfoLog $outputLog $logFile "Az Resource Group Name: $ResourceGroup"
     $ApplicationId = $context["azAppId"]
-    if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzApplicationId' required" }
+    if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzAppId' required" }
     Add-KFInfoLog $outputLog $logFile "Az IoT Hub Application Id: $ApplicationId"
     $SubGuid = $context["azSubscriptionId"]
     if ([string]::IsNullOrWhiteSpace($SubGuid)) { throw "Context variable 'AzSubscriptionId' required" }
