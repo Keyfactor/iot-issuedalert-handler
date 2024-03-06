@@ -54,7 +54,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($ResourceGroup)) { throw "Context variable 'AzResourceGroupName' required" }
     Add-KFInfoLog $outputLog $logFile "Az Resource Group Name: $ResourceGroup"
     $ApplicationId = $context["AzAppId"]
-    if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzApplicationId' required" }
+    if ([string]::IsNullOrWhiteSpace($ApplicationId)) { throw "Context variable 'AzAppId' required" }
     Add-KFInfoLog $outputLog $logFile "Az Application Id: $ApplicationId"
     $TenantId = $context["AzTenantId"]
     if ([string]::IsNullOrWhiteSpace($TenantId)) { throw "Context variable 'AzTenantId' required" }
