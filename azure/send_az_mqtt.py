@@ -6,7 +6,7 @@ import sys
 print ('num args', len(sys.argv))
 print ('arg list: ', str(sys.argv))
 if (len(sys.argv) < 3):
-    print ("please input device_id as parameter")
+    print ("please input device_id and iot_hub name as parameters")
     exit()
 
 if (sys.argv[1]):
