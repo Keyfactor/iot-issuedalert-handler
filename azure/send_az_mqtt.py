@@ -5,16 +5,25 @@ import sys
 
 print ('num args', len(sys.argv))
 print ('arg list: ', str(sys.argv))
-if (len(sys.argv) < 2):
+if (len(sys.argv) < 3):
     print ("please input device_id as parameter")
     exit()
 
 if (sys.argv[1]):
     device_id = sys.argv[1]
     print ("device_id input:", device_id)
+else:
+    print ("invalid device_id input, exiting")
+    exit
 
-path_to_root_cert = "/home/keyfactor/Keyfactor-CAgent/DigiCertGlobalRootG2.pem"
-iot_hub_name = "keyfactor-iot-demos"
+if (sys.argv[2]):
+    iot_hub_name = "keyfactor-iot-demos"
+    print ("iot_hub name input:", iot_hub_name)
+else:
+    print ("invalid iot_hub name input, exiting")
+    exit
+
+path_to_root_cert = "/home/keyfactor/DigiCertGlobalRootG2.pem"
 
 def on_connect(client, userdata, flags, rc):
     print("Device connected with result code: " + str(rc))
